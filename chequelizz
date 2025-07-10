@@ -1,0 +1,230 @@
+  const taskBox = state.taskBoxes[state.currentTaskBox];
+            task.levels.forEach((value, i) => {
+                if (i >= taskBox.levelNames.length) return;
+                
+                const level = document.createElement('div');
+                level.className = 'text-xs bg-indigo-100 text-indigo-800 px-2 py-1 rounded';
+                level.textContent = `${taskBox.levelNames[i]}: ${value}`;
+                levels.appendChild(level);
+            });
+            
+            content.appendChild(title);
+            content.appendChild(levels);
+            
+            item.appendChild(checkbox);
+            item.appendChild(content);
+            
+            return item;
+        }
+
+        // Sort tasks based on preference
+        function sortTasks(tasks, preference) {
+            switch (preference) {
+                case 'alphabetical':
+                    return [...tasks].sort((a, b) => a.name.localeCompare(b.name));
+                case 'date':
+                    return [...tasks].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+                case 'custom':
+                default:
+                    return [...tasks];
+            }
+        }
+
+        // Render templates list
+        function renderTemplatesList() {
+            elements.templateList.innerHTML = '';
+            state.templates.forEach(template => {
+                const templateElement = document.createElement('div');
+                templateElement.className = 'p-3 bg-gray-100 rounded-md cursor-pointer hover:bg-gray-200 transition';
+                templateElement.textContent = template;
+                templateElement.addEventListener('click', () => {
+                    // In a real app, we would load the template here
+                    alert(`Template "${template}" selected (loading functionality would be implemented in production)`);
+                });
+                elements.templateList.appendChild(templateElement);
+            });
+        }
+
+        // Show modal for adding a new task
+        function showAddTaskModal() {
+            // Clear previous inputs
+            elements.taskNameInput.value = '';
+            elements.taskDescInput.value = '';
+            elements.taskLevelsContainer.innerHTML = '';
+            
+            // Add level sliders
+            const taskBox = state.taskBoxes[state.currentTaskBox];
+            taskBox.levelNames.forEach((name, i) => {
+                const container = document.createElement('div');
+                
+                const label = document.createElement('label');
+                label.className = 'block text-sm text-gray-700 mb-1';
+                label.textContent = name;
+                
+                const slider = document.createElement('input');
+                slider.type = 'range';
+                slider.min = '0';
+                slider.max = '100';
+                slider.value = '50';
+                slider.className = 'level-slider w-full';
+                slider.dataset.levelIndex = i;
+                
+                container.appendChild(label);
+                container.appendChild(slider);
+                elements.taskLevelsContainer.appendChild(container);
+            });
+            
+            elements.taskModal.classList.remove('hidden');
+        }
+
+        // Save a new task
+        function saveNewTask() {
+            const name = elements.taskNameInput.value.trim();
+            if (!name) {
+                alert('Task name is required');
+                return;
+            }
+            
+            // Add task to current task box
+            const newTask = {
+                id: state.nextTaskId++,
+                name,
+                completed: false,
+                createdAt: new Date().toISOString()
+            };
+            
+            state.taskBoxes[state.currentTaskBox].tasks.push(newTask);
+            renderTaskList();
+            elements.taskModal.classList.add('hidden');
+            
+            // Clear input
+            elements.taskNameInput.value = '';
+        }
+
+        // Show modal for adding a new task box
+        function showAddTaskBoxModal() {
+            elements.taskBoxNameInput.value = '';
+            elements.taskBoxLevelsInput.value = state.defaultLevelNames.join(', ');
+            elements.taskBoxModal.classList.remove('hidden');
+        }
+
+        // Save a new task box
+        function saveNewTaskBox() {
+            const name = elements.taskBoxNameInput.value.trim();
+            if (!name) {
+                alert('TaskBox name is required');
+                return;
+            }
+            
+            const levelsInput = elements.taskBoxLevelsInput.value.trim();
+            const levelNames = levelsInput.split(',').map(item => item.trim()).filter(item => item);
+            
+            // Ensure we have exactly 8 levels, padding with defaults if needed
+            while (levelNames.length < 8) {
+                levelNames.push(`Level ${levelNames.length + 1}`);
+            }
+            
+            state.taskBoxes[name] = {
+                tasks: [],
+                levelNames: levelNames.slice(0, 8),
+                sortPreference: 'alphabetical'
+            };
+            
+            state.currentTaskBox = name;
+            renderTaskList();
+            elements.taskBoxModal.classList.add('hidden');
+        }
+
+        // Show settings modal
+        function showSettingsModal() {
+            elements.levelNamesContainer.innerHTML = '';
+            
+            // Create inputs for level names
+            state.defaultLevelNames.forEach((name, i) => {
+                const container = document.createElement('div');
+                container.className = 'flex items-center gap-2';
+                
+                const label = document.createElement('label');
+                label.className = 'block text-sm text-gray-700 w-16';
+                label.textContent = `Level ${i+1}:`;
+                
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'flex-1 border rounded-md p-2';
+                input.value = name;
+                input.dataset.levelIndex = i;
+                
+                container.appendChild(label);
+                container.appendChild(input);
+                elements.levelNamesContainer.appendChild(container);
+            });
+            
+            elements.defaultSortSelect.value = state.taskBoxes[state.currentTaskBox].sortPreference;
+            elements.settingsModal.classList.remove('hidden');
+        }
+
+        // Save settings
+        function saveSettings() {
+            // Update level names
+            const inputs = elements.levelNamesContainer.querySelectorAll('input');
+            inputs.forEach(input => {
+                const index = parseInt(input.dataset.levelIndex);
+                state.defaultLevelNames[index] = input.value.trim() || `Level ${index+1}`;
+            });
+            
+            // Update sort preference for current task box
+            const taskBox = state.taskBoxes[state.currentTaskBox];
+            taskBox.sortPreference = elements.defaultSortSelect.value;
+            
+            // Update sort dropdown in main view to match
+            elements.sortSelect.value = taskBox.sortPreference;
+            
+            // Re-render with new settings
+            renderTaskList();
+            elements.settingsModal.classList.add('hidden');
+        }
+
+        // Handle sort selection change
+        function handleSortChange() {
+            const value = elements.sortSelect.value;
+            state.taskBoxes[state.currentTaskBox].sortPreference = value;
+            renderTaskList();
+        }
+
+        // Attach event listeners
+        function attachEventListeners() {
+            // Buttons
+            elements.settingsBtn.addEventListener('click', showSettingsModal);
+            elements.cancelSettingsBtn.addEventListener('click', () => elements.settingsModal.classList.add('hidden'));
+            elements.saveSettingsBtn.addEventListener('click', saveSettings);
+            
+            elements.addTaskBtn.addEventListener('click', showAddTaskModal);
+            elements.cancelTaskBtn.addEventListener('click', () => elements.taskModal.classList.add('hidden'));
+            elements.saveTaskBtn.addEventListener('click', saveNewTask);
+            
+            elements.addTaskBoxBtn.addEventListener('click', showAddTaskBoxModal);
+            elements.cancelTaskBoxBtn.addEventListener('click', () => elements.taskBoxModal.classList.add('hidden'));
+            elements.saveTaskBoxBtn.addEventListener('click', saveNewTaskBox);
+            
+            elements.addTemplateBtn.addEventListener('click', () => {
+                const templateName = prompt('Enter template name:');
+                if (templateName) {
+                    state.templates.push(templateName);
+                    renderTemplatesList();
+                }
+            });
+            
+            // Both upload buttons do the same thing
+            elements.uploadTemplateBtn.addEventListener('click', () => alert('Template upload functionality would be implemented in production'));
+            elements.uploadTemplateBtn2.addEventListener('click', () => alert('Template upload functionality would be implemented in production'));
+            
+            // Sort select
+            elements.sortSelect.addEventListener('change', handleSortChange);
+        }
+
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
+```
